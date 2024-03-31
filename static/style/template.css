@@ -1,0 +1,79 @@
+body {
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+}
+
+.content {
+    padding-left: 100px;
+    /* Adjust the value as needed */
+    padding-right: 100px;
+    /* Adjust the value as needed */
+}
+
+
+.logo_img {
+    max-width: 8%;
+    height: auto;
+}
+
+.navbar-brand {
+    margin-left: 30px;
+}
+
+#navbarNav {
+    justify-content: right;
+    padding-right: 100px;
+}
+
+nav {
+    background-color: #dbe5ec;
+    /* Your custom color */
+    padding: 10px;
+}
+
+body {
+    /* display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          text-align: center; */
+    max-height: 100%;
+}
+
+.title-name {
+    font-size: 2rem;
+    font-family: 'Gill Sans', 'Gill Sans MT', Calibri, 'Trebuchet MS', sans-serif;
+}
+
+.footer {
+    margin-top: auto;
+}
+
+.gauge-container {
+    position: relative;
+    width: 100%;
+    height: 150px;
+  }
+
+  .gauge {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 150px;
+    height: 150px;
+    border-radius: 50%;
+    background: conic-gradient(#f00 0%, #ff0 50%, #0f0 100%);
+    border: 5px solid #fff;
+    box-shadow: 0 0 15px rgba(0, 0, 0, 0.5);
+  }
+
+  .moisture-value {
+    text-align: center;
+    font-size: 18px;
+    font-weight: bold;
+  }

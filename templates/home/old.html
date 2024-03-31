@@ -1,0 +1,90 @@
+{% extends 'layouts/base.html' %}
+
+{% block title %}Chart.js Example{% endblock title %}
+{% block headContent %}
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.socket.io/4.0.1/socket.io.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-moment/dist/chartjs-adapter-moment.bundle.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-colorschemes"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-streaming"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-rough"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-deferred"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-downsample"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-crosshair"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation"></script>
+{% endblock headContent %}
+{% block bodyContent %}
+  <div style="height: 50vh; width: 50%;">
+    <canvas id="barChart"></canvas>
+  </div>
+  <script>
+    // Initial data
+    var labels = {{ labels | tojson }};
+    var data = {{ data | tojson }};
+
+    // Create bar chart
+    var ctxBar = document.getElementById('barChart');
+    var barChart = new Chart(ctxBar, {
+        type: 'bar',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'Temperature',
+                data: data,
+                backgroundColor: 'rgb(75, 192, 192)',
+            }]
+        },
+        options: {
+            scales: {
+                y: {
+                    beginAtZero: true
+                }
+            }
+        }
+    });
+    var socket = io();
+
+    socket.on('connect', function() {
+        console.log('Connected to server');
+    });
+
+    socket.on('chart_updated', function(data) {
+        // Update chart with new data and labels
+        barChart.data.labels = data.labels;
+        barChart.data.datasets[0].data = data.data;
+        console.log(data.data);
+        barChart.update();
+    });
+
+    // function updateChartWithWebhookData(newData) {
+    //     fetch('/webhook', {
+    //         method: 'POST',
+    //         headers: {
+    //             'Content-Type': 'application/json'
+    //         },
+    //         body: JSON.stringify({ data: newData })
+    //     })
+    //     .then(response => response.json())
+    //     .then(data => {
+    //         if (data.success) {
+    //             // Update chart with new data and labels
+    //             barChart.data.labels = data.labels;
+    //             barChart.data.datasets[0].data = data.data;
+    //             barChart.update();
+    //         } else {
+    //             console.error('Failed to update chart with webhook data');
+    //         }
+    //     })
+    //     .catch(error => {
+    //         console.error('Error updating chart with webhook data:', error);
+    //     });
+    // }
+  </script>
+ {% endblock bodyContent %}
+<!-- </body>
+
+</html> -->

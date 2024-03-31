@@ -1,0 +1,255 @@
+{% extends 'layouts/base.html' %}
+
+{% block title %}Chart.js Example{% endblock title %}
+{% block headContent %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.socket.io/4.0.1/socket.io.min.js"></script>
+<script
+  src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-moment/dist/chartjs-adapter-moment.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom"></script>
+{% endblock headContent %}
+{% block bodyContent %}
+<!-- <div style="height: 50vh; width: 50%;">
+    <canvas id="tempBarChart"></canvas>
+  </div>
+  <div style="height: 50vh; width: 50%;">
+    <canvas id="humidityBarChart"></canvas>
+  </div> -->
+<div class="container-fluid mt-3">
+  <div class="row">
+    <div class="col-md-4">
+      <div class="card">
+        <div class="card-body">
+          <h5 class="card-title">Connected Devices</h5>
+          <p class="card-text">Number of connected devices: <span id="connectedDevices">0</span></p>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-4">
+      <div class="card">
+        <div class="card-body">
+          <h5 class="card-title">Current Device</h5>
+          <p class="card-text">Device 1 <span id="currentTime"></span></p>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-4">
+      <div class="card">
+        <div class="card-body">
+          <h5 class="card-title">Last Updated</h5>
+          <p class="card-text">Last updated: <span id="lastUpdated"></span></p>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="row mt-3">
+    <div class="col-md-6">
+      <div class="card">
+        <div class="card-body">
+          <h5 class="card-title">Temperature</h5>
+          <canvas id="tempBarChart"></canvas>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-6">
+      <div class="card">
+        <div class="card-body">
+          <h5 class="card-title">Humidity</h5>
+          <canvas id="humidityBarChart"></canvas>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="row mt-3">
+    <!-- Soil Moisture Chart -->
+    <div class="col-md-6">
+      <div class="card">
+        <div class="card-body">
+          <h5 class="card-title">Soil Moisture</h5>
+          <!-- Canvas for displaying soil moisture chart -->
+          <canvas id="soilMoistureChart"></canvas>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-6">
+      <div class="card">
+        <div class="card-body">
+          <h5 class="card-title">pH Level</h5>
+          <!-- Canvas for displaying pH level chart -->
+          <canvas id="phLevelChart"></canvas>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+  // Initial data
+  var labels = {{ labels | tojson }};
+  var data = {{ data | tojson }};
+
+  // Create bar chart
+  var tempCtxBar = document.getElementById('tempBarChart');
+  var tempBarChart = new Chart(tempCtxBar, {
+    type: 'bar',
+    data: {
+      labels: labels,
+      datasets: [{
+        label: 'Temperature',
+        data: data,
+        backgroundColor: 'rgb(75, 192, 192)',
+      }]
+    },
+    options: {
+      scales: {
+        y: {
+          beginAtZero: true
+        }
+      }
+    }
+  });
+
+  // Create bar chart
+  var humidCtxBar = document.getElementById('humidityBarChart');
+  var humidBarChart = new Chart(humidCtxBar, {
+    type: 'bar',
+    data: {
+      labels: labels,
+      datasets: [{
+        label: 'Humidity',
+        data: data,
+        backgroundColor: 'rgb(71, 120, 122)',
+      }]
+    },
+    options: {
+      scales: {
+        y: {
+          beginAtZero: true
+        }
+      }
+    }
+  });
+  var socket = io();
+
+  socket.on('connect', function () {
+    console.log('Connected to server');
+  });
+
+  socket.on('chart_updated', function (data) {
+    // Update chart with new data and labels
+    tempBarChart.data.labels = data.labels;
+    tempBarChart.data.datasets[0].data = data.data;
+    humidBarChart.data.labels = data.labels;
+    humidBarChart.data.datasets[0].data = data.data;
+    console.log(data.data);
+    tempBarChart.update();
+    humidBarChart.update();
+  });
+
+  // Initialize soil moisture chart
+  var soilMoistureCtx = document.getElementById('soilMoistureChart').getContext('2d');
+  var soilMoistureChart = new Chart(soilMoistureCtx, {
+    type: 'bar',
+    data: {
+      labels: ['January', 'February', 'March', 'April', 'May', 'June'],
+      datasets: [{
+        label: 'Soil Moisture',
+        data: [50, 60, 70, 80, 70, 65], // Example data (replace with actual data)
+        backgroundColor: 'rgba(75, 192, 192, 0.5)',
+        borderColor: 'rgba(75, 192, 192, 1)',
+        borderWidth: 1
+      }]
+    },
+    options: {
+      scales: {
+        y: {
+          beginAtZero: true,
+          title: {
+            display: true,
+            text: 'Moisture Level (%)'
+          }
+        },
+        x: {
+          title: {
+            display: true,
+            text: 'Time'
+          }
+        }
+      }
+    }
+  });
+
+  // Initialize pH level chart
+  var phLevelCtx = document.getElementById('phLevelChart').getContext('2d');
+  var phLevelChart = new Chart(phLevelCtx, {
+    type: 'bar',
+    data: {
+      labels: ['January', 'February', 'March', 'April', 'May', 'June'],
+      datasets: [{
+        label: 'pH Level',
+        data: [7.0, 6.8, 7.2, 6.5, 6.7, 7.1], // Example data (replace with actual data)
+        backgroundColor: 'rgba(153, 102, 255, 0.5)',
+        borderColor: 'rgba(153, 102, 255, 1)',
+        borderWidth: 1
+      }]
+    },
+    options: {
+      scales: {
+        y: {
+          beginAtZero: false,
+          title: {
+            display: true,
+            text: 'pH Level'
+          }
+        },
+        x: {
+          title: {
+            display: true,
+            text: 'Time'
+          }
+        }
+      }
+    }
+  });
+
+  // Example: Update soil moisture every 5 seconds (replace with actual data update)
+  setInterval(function () {
+    // Generate random data for demonstration
+    var newMoistureData = Array.from({ length: 6 }, () => Math.floor(Math.random() * 100));
+    var newPhData = Array.from({ length: 6 }, () => (Math.random() * (8.0 - 6.0) + 6.0).toFixed(1));
+    // Update chart data
+    soilMoistureChart.data.datasets[0].data = newMoistureData;
+    phLevelChart.data.datasets[0].data = newPhData;
+    // Update chart
+    soilMoistureChart.update();
+    phLevelChart.update();
+  }, 5000);
+
+  // function updateChartWithWebhookData(newData) {
+  //     fetch('/webhook', {
+  //         method: 'POST',
+  //         headers: {
+  //             'Content-Type': 'application/json'
+  //         },
+  //         body: JSON.stringify({ data: newData })
+  //     })
+  //     .then(response => response.json())
+  //     .then(data => {
+  //         if (data.success) {
+  //             // Update chart with new data and labels
+  //             barChart.data.labels = data.labels;
+  //             barChart.data.datasets[0].data = data.data;
+  //             barChart.update();
+  //         } else {
+  //             console.error('Failed to update chart with webhook data');
+  //         }
+  //     })
+  //     .catch(error => {
+  //         console.error('Error updating chart with webhook data:', error);
+  //     });
+  // }
+</script>
+{% endblock bodyContent %}
+<!-- </body>
+
+</html> -->
