@@ -12,6 +12,10 @@ data = [0, 10, 15, 8, 22, 18]
 def homepage():
     return render_template('home/index.html', labels=labels, data=data)
 
+@app.route('/ttn')
+def ttn():
+    return render_template('home/message.html')
+
 @app.route('/webhook', methods=['POST'])
 def webhook():
     global data, labels
@@ -30,21 +34,34 @@ def webhook():
     else:
         return jsonify(success=False, error='Only POST requests are allowed'), 405
 
+from flask import request, jsonify
+
 @app.route('/message', methods=['POST'])
 def message():
     if request.method == 'POST':
         try:
-            message = request.json.get('message')
-            if message is not None:
-                socketio.emit('message', {'message': message})
-                print('Message:', message)
-                return jsonify(success=True, message=message)
+            # Get the JSON data from the request
+            json_data = request.json
+            
+            # Check if the 'uplink_message' key exists in the JSON data
+            if 'uplink_message' in json_data:
+                # If it exists, extract the 'message' from 'uplink_message'
+                message = json_data['uplink_message'].get('decoded_payload', {}).get('message')
+                
+                # Check if 'message' is not None
+                if message is not None:
+                    # Emit the message via socketio
+                    socketio.emit('message_updated', {'message': message})
+                    return jsonify(success=True, message=message)
+                else:
+                    return jsonify(success=False, error='Message field is missing or empty'), 400
             else:
-                return jsonify(success=False, error='Message field is missing or empty'), 400
+                return jsonify(success=False, error='Uplink message not found'), 400
         except Exception as e:
             return jsonify(success=False, error=str(e)), 500
     else:
         return jsonify(success=False, error='Only POST requests are allowed'), 405
+
 
 if __name__ == '__main__':
     app.debug = True

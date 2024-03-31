@@ -1,0 +1,43 @@
+{% extends 'layouts/base.html' %}
+
+{% block title %}Chart.js Example{% endblock title %}
+{% block headContent %}
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.socket.io/4.0.1/socket.io.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-moment/dist/chartjs-adapter-moment.bundle.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-colorschemes"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-streaming"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-rough"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-deferred"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-downsample"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-crosshair"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation"></script>
+{% endblock headContent %}
+{% block bodyContent %}
+<h1>Message From TTN</h1>
+<div class="message-list">
+</div>
+<script>
+  // Initial data
+
+  var messageList = document.querySelector('.message-list'); // Corrected
+  var socket = io();
+
+  socket.on('connect', function () {
+    console.log('Connected to server');
+  });
+
+  socket.on('message_updated', function (data) {
+    console.log('Message received:', data);
+    // Append messageList with new message
+    var newText = document.createElement('p');
+    newText.textContent = data.message;
+    messageList.appendChild(newText);
+  });
+
+</script>
+{% endblock bodyContent %}

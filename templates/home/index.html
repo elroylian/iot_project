@@ -129,6 +129,7 @@
       }
     }
   });
+
   var socket = io();
 
   socket.on('connect', function () {
@@ -224,30 +225,6 @@
     soilMoistureChart.update();
     phLevelChart.update();
   }, 5000);
-
-  // function updateChartWithWebhookData(newData) {
-  //     fetch('/webhook', {
-  //         method: 'POST',
-  //         headers: {
-  //             'Content-Type': 'application/json'
-  //         },
-  //         body: JSON.stringify({ data: newData })
-  //     })
-  //     .then(response => response.json())
-  //     .then(data => {
-  //         if (data.success) {
-  //             // Update chart with new data and labels
-  //             barChart.data.labels = data.labels;
-  //             barChart.data.datasets[0].data = data.data;
-  //             barChart.update();
-  //         } else {
-  //             console.error('Failed to update chart with webhook data');
-  //         }
-  //     })
-  //     .catch(error => {
-  //         console.error('Error updating chart with webhook data:', error);
-  //     });
-  // }
 </script>
 {% endblock bodyContent %}
 <!-- </body>
