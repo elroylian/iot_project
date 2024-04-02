@@ -2,42 +2,113 @@
 
 {% block title %}Chart.js Example{% endblock title %}
 {% block headContent %}
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <script src="https://cdn.socket.io/4.0.1/socket.io.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-moment/dist/chartjs-adapter-moment.bundle.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-colorschemes"></script>
-  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels"></script>
-  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation"></script>
-  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom"></script>
-  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-streaming"></script>
-  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-rough"></script>
-  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-deferred"></script>
-  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-downsample"></script>
-  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-crosshair"></script>
-  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.socket.io/4.0.1/socket.io.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-moment/dist/chartjs-adapter-moment.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom"></script>
 {% endblock headContent %}
 {% block bodyContent %}
-<h1>Message From TTN</h1>
-<div class="message-list">
+<div class="container-fluid mt-3">
+    <div class="row">
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">Connected Devices</h5>
+                    <p class="card-text">Number of connected devices: <span id="connectedDevices">0</span></p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">Current Device</h5>
+                    <p class="card-text">Device 1 <span id="currentTime"></span></p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">Last Updated</h5>
+                    <p class="card-text">Last updated: <span id="lastUpdated"></span></p>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="row mt-3" id="chartRow">
+        <!-- Chart canvas elements will be dynamically added here -->
+    </div>
+    <h1>Message From TTN</h1>
+    <div class="message-list">
+    </div>
 </div>
 <script>
   // Initial data
+var socket = io();
+var charts = [];
 
-  var messageList = document.querySelector('.message-list'); // Corrected
-  var socket = io();
-
-  socket.on('connect', function () {
+socket.on('connect', function () {
     console.log('Connected to server');
-  });
+});
 
-  socket.on('message_updated', function (data) {
-    console.log('Message received:', data);
-    // Append messageList with new message
+socket.on('message_updated', function (data) {
+    var regex = /M ([\w:]+) - T: (\d+\.\d+) C, H: (\d+\.\d+)/g;
+    var match = regex.exec(data.message[0]);
+
+    var macAddress = match[1];
+    var temperature = parseFloat(match[2]);
+    var humidity = parseFloat(match[3]);
+    var rssi = data.rssi; // Assuming you're passing the RSSI data along with the message
+
+    var currentTime = new Date().toLocaleTimeString();
+
+    updateCharts(currentTime, temperature, humidity, rssi);
+
     var newText = document.createElement('p');
-    newText.textContent = data.message;
-    messageList.appendChild(newText);
-  });
+    newText.textContent = 'MAC Address: ' + macAddress + ', Temperature: ' + temperature + ', Humidity: ' + humidity + ', RSSI: ' + rssi + '<- FarmID: ' + data.farm_id;
+    document.querySelector('.message-list').appendChild(newText);
+});
+
+function updateCharts(time, temperature, humidity, rssi) {
+    charts.forEach(function (chart) {
+        chart.data.labels.push(time);
+        chart.data.datasets[0].data.push(temperature);
+        chart.data.datasets[1].data.push(humidity);
+        chart.data.datasets[2].data.push(rssi);
+        chart.update();
+    });
+
+    document.getElementById('lastUpdated').textContent = time;
+}
+
+function createChart(canvasId, label) {
+    var ctx = document.getElementById(canvasId).getContext('2d');
+    var chart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: [],
+            datasets: [{
+                label: label,
+                data: [],
+                backgroundColor: 'rgb(75, 192, 192)',
+            }]
+        },
+        options: {
+            scales: {
+                y: {
+                    beginAtZero: true
+                }
+            }
+        }
+    });
+    charts.push(chart);
+}
+
+// Create charts for Temperature, Humidity, and RSSI
+createChart('tempBarChart', 'Temperature');
+createChart('humidityBarChart', 'Humidity');
+createChart('rssiBarChart', 'RSSI');
 
 </script>
 {% endblock bodyContent %}
