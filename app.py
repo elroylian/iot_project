@@ -1,8 +1,8 @@
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, render_template, request, jsonify, stream_with_context, Response
 from flask_socketio import SocketIO, emit
 from flask_mysqldb import MySQL
 from flask_cors import CORS
-import requests
+import json
 import re
 from datetime import datetime
 
@@ -61,6 +61,53 @@ def data():
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
+@app.route('/get-latest-data', methods=['POST'])
+def get_latest_data():
+    try:
+        mac_address = request.json.get('mac_address')
+        if mac_address:
+            cursor = mysql.connection.cursor()
+            cursor.execute("SELECT timestamp, temperature, humidity, rssi FROM sensor_data WHERE mac_address = %s ORDER BY timestamp DESC LIMIT 1", (mac_address,))
+            data = cursor.fetchone()
+            return jsonify({'success': True, 'data': data, 'mac_address': mac_address})
+        else:
+            return jsonify({'success': False, 'error': 'MAC address not provided'}), 400
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+# @app.route('/get-all-data')
+# def get_all_data():
+
+#     try:
+#         def generate():
+#             cursor = mysql.connection.cursor()
+#             cursor.execute("SELECT mac_address, timestamp, temperature, humidity, rssi FROM sensor_data ORDER BY timestamp DESC LIMIT 1")
+#             data = cursor.fetchall()
+#             json_data = json.dumps(data)
+#             yield f"data:{json_data}\n\n"
+#         response = Response(stream_with_context(generate()), mimetype="text/event-stream")
+#         return response
+#         # return jsonify({'success': True, 'data': data})
+#     except Exception as e:
+#         return jsonify({'success': False, 'error': str(e)}), 500
+    
+@app.route('/update-data')
+def get_all_data():
+    try:
+        # Get the JSON data from the request
+        json_data = request.json
+
+        cursor = mysql.connection.cursor()
+        cursor.execute("SELECT mac_address, timestamp, temperature, humidity, rssi FROM sensor_data ORDER BY timestamp DESC LIMIT 2")
+        data = cursor.fetchall()
+        socketio.emit('data_update', {'data': data})
+        return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+    
+
+
+
 @socketio.on('request_data')
 def handle_request_data(data):
     try:
@@ -79,23 +126,7 @@ def handle_request_data(data):
     except Exception as e:
         emit('data_response', {'success': False, 'error': str(e)}) 
 
-# @app.route('/webhook', methods=['POST'])
-# def webhook():
-#     global data, labels
-#     if request.method == 'POST':
-#         try:
-#             new_data = request.json.get('data')
-#             if new_data is not None:
-#                 data.append(new_data)
-#                 labels.append('New Month')
-#                 socketio.emit('chart_updated', {'data': data, 'labels': labels})
-#                 return jsonify(success=True, new_data=new_data)
-#             else:
-#                 return jsonify(success=False, error='Data field is missing or empty'), 400
-#         except Exception as e:
-#             return jsonify(success=False, error=str(e)), 500
-#     else:
-#         return jsonify(success=False, error='Only POST requests are allowed'), 405
+
 
 @app.route('/push', methods=['POST'])
 def push():
@@ -119,8 +150,8 @@ def push():
                 message_lines = message.split('\n')
                 message_lines.remove('')  # Remove empty lines
                 # Log the message lines and RSSI
-                print('Message lines:', message_lines)
-                print('Size',len(message_lines))
+                # print('Message lines:', message_lines)
+                # print('Size',len(message_lines))
                 socketio.emit('update_chart')
 
                 # Get the current time and convert it to string in 'YYYY-MM-DD HH:MM:SS' format

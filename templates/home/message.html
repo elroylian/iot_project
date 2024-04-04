@@ -82,15 +82,13 @@
   // var temperatureData = [];
   // var humidityData = [];
   // var rssiData = [];
-  var allCharts = {};
-  var mac_addresses = []
+  var mac_addresses = [];
+  var num_charts = 3;
+  var last_updated_for_mac_address = {};
+  var last_update_for_chart = {};
 
   document.addEventListener('DOMContentLoaded', function () {
     var socket = io();
-
-    // socket.on('get_data', function (data) {
-    //   socket.emit('request_data', { mac_address: data.mac_address });
-    // });
 
     mac_addresses = {{ mac_address|tojson }};
     // console.log("Plant1:",mac_addresses[0]);
@@ -100,6 +98,7 @@
     // Fetch data for each device
     mac_addresses.forEach(macAddress => {
       fetchData(macAddress);
+      last_updated_for_mac_address[macAddress] = "";
       console.log("Fetching Data for: ", macAddress);
     });
     
@@ -133,7 +132,7 @@
       var temperatureData = [];
       var humidityData = [];
       var rssiData = [];
-      var chartToPush = [];
+
       console.log("Mac Address:", mac_address);
       for (const readings of data_array) {
         // console.log("Readings:", readings);
@@ -147,131 +146,26 @@
       var container2 = document.getElementById(mac_address + '-chartRow2');
       container.innerHTML = '<h2>'+mac_address+'</h2>';
       container2.innerHTML = '';
-      container.appendChild(createChartCard(mac_address + '-rssiBarChart', 'RSSI', 'col-md-12'));
-      container2.appendChild(createChartCard(mac_address + '-tempBarChart', 'Temperature'));
-      container2.appendChild(createChartCard(mac_address + '-humidityBarChart', 'Humidity'));
-      createChart(mac_address + '-tempBarChart', 'Temperature', 'bar', temperatureData, labels, tempColor);
-      createChart(mac_address + '-humidityBarChart', 'Humidity','bar', humidityData, labels, humidityColor);
-      createChart(mac_address + '-rssiBarChart', 'RSSI','line', rssiData, labels, rssiColor);
-      //createChart(canvasId, label, type, data = [], labels = [], color, charts = [])
-    }
-
-    
-    // socket.emit('request_data', { mac_address: mac_addresses[0] })
-
-  //   setInterval(printCharts, 5000);
-
-  // function printCharts() {
-  //   socket.emit('request_data', { mac_address: mac_addresses[0] })
-  //   console.log("Requesting Data...")
-  // }
-
-    // socket.on('data_response',function (response){
-    //   console.log("HERE IS",response);
-    // })
-    // Listen for the response from the server
-    // socket.on('data_response', function (response) {
-    //   if (response.success) {
-    //     // Clear labels and data arrays
-    //     labels = [];
-    //     temperatureData = [];
-    //     humidityData = [];
-    //     rssiData = [];
-    //     response.data.forEach(function (entry) {
-    //       // Format each entry and append it to the data container
-    //       labels.push(entry[0]);
-    //       temperatureData.push(entry[1]);
-    //       humidityData.push(entry[2]);
-    //       rssiData.push(entry[3]);
-    //       charts.forEach(function (chart,index) {
-    //         chart.data.labels = labels;
-    //         if(index == 0){
-    //           chart.data.datasets[0].data = temperatureData;
-    //         }
-    //         else if(index == 1){
-    //           chart.data.datasets[0].data = humidityData;
-    //         }
-    //         else if(index == 2){
-    //           chart.data.datasets[0].data = rssiData;
-    //         }
-    //         chart.update();
-    //       });
-    //     });
-
-    //   } else {
-    //     alert("Error fetching data: " + response.error);
-    //   }
-    // });
-    
-    
+      container.appendChild(createChartCard(mac_address + '-rssiChart', 'RSSI', 'col-md-12'));
+      container2.appendChild(createChartCard(mac_address + '-tempChart', 'Temperature'));
+      container2.appendChild(createChartCard(mac_address + '-humidityChart', 'Humidity'));
+      var rssiConfig = createConfig('RSSI', 'line', rssiData, labels, rssiColor);
+      var tempConfig = createConfig('Temperature', 'bar', temperatureData, labels, tempColor);
+      var humidityConfig = createConfig('Humidity', 'bar', humidityData, labels, humidityColor);
+      createChart(mac_address + '-tempChart', tempConfig, mac_address);
+      createChart(mac_address + '-humidityChart', humidityConfig, mac_address);
+      createChart(mac_address + '-rssiChart', rssiConfig, mac_address);
+    }    
   });
-
-  
-
-  // socket.on('update_chart', function(){
-  //   charts.forEach(function (chart,index) {
-  //     chart.update();
-  //     console.log("Chart Updated")
-  //   });
-  // });
   
 
   socket.on('connect', function () {
     console.log('Connected to server');
   });
 
-  // var chartContainer = document.getElementById('chartRow1');
-  // chartContainer.appendChild(createChartCard('rssiBarChart1', 'RSSI', 'col-md-12'));
-  // var chartContainer2 = document.getElementById('chartRow2');;
-  // chartContainer2.appendChild(createChartCard('tempBarChart1', 'Temperature'));
-  // chartContainer2.appendChild(createChartCard('humidityBarChart1', 'Humidity'));
-
-  // var chartContainer = document.getElementById('4c:75:25:cb:7f:50-chartRow1');
-  // chartContainer.appendChild(createChartCard('rssiBarChart1', 'RSSI', 'col-md-12'));
-  // var chartContainer2 = document.getElementById('4c:75:25:cb:7f:50-chartRow2');;
-  // chartContainer2.appendChild(createChartCard('tempBarChart1', 'Temperature'));
-  // chartContainer2.appendChild(createChartCard('humidityBarChart1', 'Humidity'));
-
-  // // Create charts for Temperature, Humidity, and RSSI
-  // createChart('tempBarChart1', 'Temperature', 'bar',);
-  // createChart('humidityBarChart1', 'Humidity', 'bar');
-  // createChart('rssiBarChart1', 'RSSI', 'line');
-
-  // var chartContainer = document.getElementById('4c:75:25:cb:94:ac-chartRow1');
-  // chartContainer.appendChild(createChartCard('rssiBarChart2', 'RSSI', 'col-md-12'));
-  // var chartContainer2 = document.getElementById('4c:75:25:cb:94:ac-chartRow2');;
-  // chartContainer2.appendChild(createChartCard('tempBarChart2', 'Temperature'));
-  // chartContainer2.appendChild(createChartCard('humidityBarChart2', 'Humidity'));
-
-  // // Create charts for Temperature, Humidity, and RSSI
-  // createChart('tempBarChart2', 'Temperature', 'bar');
-  // createChart('humidityBarChart2', 'Humidity', 'bar');
-  // createChart('rssiBarChart2', 'RSSI', 'line');
-
-  
-
-  // socket.on('message_updated', function (data) {
-  //     var regex = /M ([\w:]+) - T: (\d+\.\d+) C, H: (\d+\.\d+)/g;
-  //     var match = regex.exec(data.message[0]);
-
-  //     var macAddress = match[1];
-  //     var temperature = parseFloat(match[2]);
-  //     var humidity = parseFloat(match[3]);
-  //     var rssi = data.rssi; // Assuming you're passing the RSSI data along with the message
-
-  //     var currentTime = new Date().toLocaleTimeString();
-
-  //     updateCharts(currentTime, temperature, humidity, rssi);
-
-  //     var newText = document.createElement('p');
-  //     newText.textContent = 'MAC Address: ' + macAddress + ', Temperature: ' + temperature + ', Humidity: ' + humidity + ', RSSI: ' + rssi + '<- FarmID: ' + data.farm_id;
-  //     document.querySelector('.message-list').appendChild(newText);
-  // });
-
   function createChartCard(canvasId, chartTitle, chartSize) {
     // Create the card div
     var cardDiv = document.createElement('div');
-    // cardDiv.className = 'col-md-6';
     cardDiv.className = chartSize ? chartSize : 'col-md-6';
 
     // Create the card element
@@ -290,7 +184,7 @@
     // Create the canvas element for the chart
     var canvas = document.createElement('canvas');
     canvas.id = canvasId;
-    canvas.height = 50;
+    canvas.height = 80;
 
     // Append title and canvas to the card body
     cardBody.appendChild(title);
@@ -306,9 +200,8 @@
     return cardDiv;
   }
 
-  function createChart(canvasId, label, type, data = [], labels = [], color) {
-    var ctx = document.getElementById(canvasId).getContext('2d');
-    var chart = new Chart(ctx, {
+  function createConfig(label, type, data = [], labels = [], color) {
+    return {
       type: type,
       data: {
         labels: labels,
@@ -325,9 +218,63 @@
           }
         }
       }
+    };
+  }
+
+  var last_updated_post = "";
+
+  function createChart(canvasId, config, mac_address) {
+    var ctx = document.getElementById(canvasId).getContext('2d');
+    var chart = new Chart(ctx, config);
+
+    // Listen for the data_update event from the server
+    socket.on('data_update', function(data) {
+      console.log("Data Update:", data.data);
+      const arrayObject = data.data;
+      var index = 0;
+      for(var i = 0; i < arrayObject.length; i++){
+        if(arrayObject[i].indexOf(mac_address) != -1){
+          console.log("Index of Mac Address:", i);
+          index = i;
+          break;
+        }
+      }
+
+      // Get the RSSI, temperature, and humidity values from the data array
+      const rssi = arrayObject[index][4];
+      const temp = arrayObject[index][2];
+      const humidity = arrayObject[index][3];
+      console.log("current mac is ",arrayObject[index])
+      
+      // Shift the labels and data arrays if they exceed 10 elements
+      if (config.data.labels.length === 10) {
+        config.data.labels.shift();
+        config.data.datasets[0].data.shift();
+      }
+      currentTime = new Date().toLocaleTimeString();
+      
+      // Append the new data to data arrays based on the chart type (temperature, humidity, or rssi)
+      if(canvasId.includes('rssi')){
+        config.data.datasets[0].data.push(rssi);
+      }
+      else if(canvasId.includes('temp')){
+        config.data.datasets[0].data.push(temp);
+      }
+      else if(canvasId.includes('humidity')){
+        config.data.datasets[0].data.push(humidity);
+      }
+
+      // Append the current time to the labels array if it's different from the last updated time
+      if(last_updated_for_mac_address[mac_address] != currentTime){
+        last_updated_for_mac_address[mac_address] = currentTime;
+        config.data.labels.push(currentTime);
+      }
+      chart.update();
     });
-    chart.update()
-    // charts.push(chart);
+
+    // console.log(socket_enabled)
+    
+    
   }
 
 
