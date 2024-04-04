@@ -10,105 +10,327 @@
 {% endblock headContent %}
 {% block bodyContent %}
 <div class="container-fluid mt-3">
-    <div class="row">
-        <div class="col-md-4">
-            <div class="card">
-                <div class="card-body">
-                    <h5 class="card-title">Connected Devices</h5>
-                    <p class="card-text">Number of connected devices: <span id="connectedDevices">0</span></p>
-                </div>
-            </div>
+  <div class="row">
+    <div class="col-md-4">
+      <div class="card">
+        <div class="card-body">
+          <h5 class="card-title">Connected Devices</h5>
+          <p class="card-text">Number of Plants: <span id="connectedDevices">0</span></p>
         </div>
-        <div class="col-md-4">
-            <div class="card">
-                <div class="card-body">
-                    <h5 class="card-title">Current Device</h5>
-                    <p class="card-text">Device 1 <span id="currentTime"></span></p>
-                </div>
-            </div>
+      </div>
+    </div>
+    <div class="col-md-4">
+      <div class="card">
+        <div class="card-body">
+          <h5 class="card-title">Current Device</h5>
+          <p class="card-text">Device 1 <span id="currentTime"></span></p>
         </div>
-        <div class="col-md-4">
-            <div class="card">
-                <div class="card-body">
-                    <h5 class="card-title">Last Updated</h5>
-                    <p class="card-text">Last updated: <span id="lastUpdated"></span></p>
-                </div>
-            </div>
+      </div>
+    </div>
+    <div class="col-md-4">
+      <div class="card">
+        <div class="card-body">
+          <h5 class="card-title">Last Updated</h5>
+          <p class="card-text">Last updated: <span id="lastUpdated"></span></p>
         </div>
+      </div>
     </div>
-    <div class="row mt-3" id="chartRow">
-        <!-- Chart canvas elements will be dynamically added here -->
+  </div>
+  <!-- <div class="row mt-3">
+    <div class="col-md-6">
+      <div class="card">
+        <div class="card-body">
+          <h5 class="card-title">Temperature</h5>
+          <canvas id="tempBarChart"></canvas>
+        </div>
+      </div>
     </div>
-    <h1>Message From TTN</h1>
-    <div class="message-list">
+    <div class="col-md-6">
+      <div class="card">
+        <div class="card-body">
+          <h5 class="card-title">Humidity</h5>
+          <canvas id="humidityBarChart"></canvas>
+        </div>
+      </div>
     </div>
+  </div>
+  <div class="row mt-3">
+    <div class="col-md-12">
+      <div class="card">
+        <div class="card-body">
+          <h5 class="card-title">RSSI</h5>
+          <canvas id="rssiBarChart"></canvas>
+        </div>
+      </div>
+    </div> -->
+    {% for mac in mac_address %}
+    <div class="row mt-3" id="{{mac}}-chartRow1">
+    </div>
+    <div class="row mt-3" id="{{mac}}-chartRow2">
+    </div>
+    {% endfor %}
+  <!-- <h1>Mac Address</h1> -->
+  <!-- <div class="message-list">
+    {% for mac in mac_address %}
+    <p>{{ mac }}</p>
+    {% endfor %} -->
+  <!-- </div> -->
 </div>
 <script>
-  // Initial data
-var socket = io();
-var charts = [];
+  var socket = io();
+  // var labels = [];
+  // var temperatureData = [];
+  // var humidityData = [];
+  // var rssiData = [];
+  var allCharts = {};
+  var mac_addresses = []
 
-socket.on('connect', function () {
-    console.log('Connected to server');
-});
+  document.addEventListener('DOMContentLoaded', function () {
+    var socket = io();
 
-socket.on('message_updated', function (data) {
-    var regex = /M ([\w:]+) - T: (\d+\.\d+) C, H: (\d+\.\d+)/g;
-    var match = regex.exec(data.message[0]);
+    // socket.on('get_data', function (data) {
+    //   socket.emit('request_data', { mac_address: data.mac_address });
+    // });
 
-    var macAddress = match[1];
-    var temperature = parseFloat(match[2]);
-    var humidity = parseFloat(match[3]);
-    var rssi = data.rssi; // Assuming you're passing the RSSI data along with the message
+    mac_addresses = {{ mac_address|tojson }};
+    // console.log("Plant1:",mac_addresses[0]);
+    // console.log("Plant2:",mac_addresses[1]);
+    document.getElementById('connectedDevices').textContent = mac_addresses.length;
 
-    var currentTime = new Date().toLocaleTimeString();
-
-    updateCharts(currentTime, temperature, humidity, rssi);
-
-    var newText = document.createElement('p');
-    newText.textContent = 'MAC Address: ' + macAddress + ', Temperature: ' + temperature + ', Humidity: ' + humidity + ', RSSI: ' + rssi + '<- FarmID: ' + data.farm_id;
-    document.querySelector('.message-list').appendChild(newText);
-});
-
-function updateCharts(time, temperature, humidity, rssi) {
-    charts.forEach(function (chart) {
-        chart.data.labels.push(time);
-        chart.data.datasets[0].data.push(temperature);
-        chart.data.datasets[1].data.push(humidity);
-        chart.data.datasets[2].data.push(rssi);
-        chart.update();
+    // Fetch data for each device
+    mac_addresses.forEach(macAddress => {
+      fetchData(macAddress);
+      console.log("Fetching Data for: ", macAddress);
     });
+    
+    function fetchData(macAddress) {
+      fetch('/get-data', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ mac_address: macAddress })
+      })
+      .then(response => response.json())
+      .then(data => {
+        // Handle the response data here
+        updateCharts(data);
+      })
+      .catch(error => {
+        console.error('Error fetching data:', error);
+      });
+    }
 
-    document.getElementById('lastUpdated').textContent = time;
-}
+    var tempColor = 'rgba(255, 99, 132, 0.7)'; // Red color with 70% opacity for temperature
+    var humidityColor = 'rgba(54, 162, 235, 0.7)'; // Blue color with 70% opacity for humidity
+    var rssiColor = 'rgba(255, 205, 86, 0.7)'; // Yellow color with 70% opacity for RSSI
 
-function createChart(canvasId, label) {
+    function updateCharts(response) {
+      const data_array = response.data;
+      const mac_address = response.mac_address;
+      const currentTime = new Date().toLocaleTimeString();
+      var labels = [];
+      var temperatureData = [];
+      var humidityData = [];
+      var rssiData = [];
+      var chartToPush = [];
+      console.log("Mac Address:", mac_address);
+      for (const readings of data_array) {
+        // console.log("Readings:", readings);
+        labels.push(readings[0]);
+        temperatureData.push(readings[1]);
+        humidityData.push(readings[2]);
+        rssiData.push(readings[3]);
+      }
+      // For rssi graph
+      var container = document.getElementById(mac_address + '-chartRow1');
+      var container2 = document.getElementById(mac_address + '-chartRow2');
+      container.innerHTML = '<h2>'+mac_address+'</h2>';
+      container2.innerHTML = '';
+      container.appendChild(createChartCard(mac_address + '-rssiBarChart', 'RSSI', 'col-md-12'));
+      container2.appendChild(createChartCard(mac_address + '-tempBarChart', 'Temperature'));
+      container2.appendChild(createChartCard(mac_address + '-humidityBarChart', 'Humidity'));
+      createChart(mac_address + '-tempBarChart', 'Temperature', 'bar', temperatureData, labels, tempColor);
+      createChart(mac_address + '-humidityBarChart', 'Humidity','bar', humidityData, labels, humidityColor);
+      createChart(mac_address + '-rssiBarChart', 'RSSI','line', rssiData, labels, rssiColor);
+      //createChart(canvasId, label, type, data = [], labels = [], color, charts = [])
+    }
+
+    
+    // socket.emit('request_data', { mac_address: mac_addresses[0] })
+
+  //   setInterval(printCharts, 5000);
+
+  // function printCharts() {
+  //   socket.emit('request_data', { mac_address: mac_addresses[0] })
+  //   console.log("Requesting Data...")
+  // }
+
+    // socket.on('data_response',function (response){
+    //   console.log("HERE IS",response);
+    // })
+    // Listen for the response from the server
+    // socket.on('data_response', function (response) {
+    //   if (response.success) {
+    //     // Clear labels and data arrays
+    //     labels = [];
+    //     temperatureData = [];
+    //     humidityData = [];
+    //     rssiData = [];
+    //     response.data.forEach(function (entry) {
+    //       // Format each entry and append it to the data container
+    //       labels.push(entry[0]);
+    //       temperatureData.push(entry[1]);
+    //       humidityData.push(entry[2]);
+    //       rssiData.push(entry[3]);
+    //       charts.forEach(function (chart,index) {
+    //         chart.data.labels = labels;
+    //         if(index == 0){
+    //           chart.data.datasets[0].data = temperatureData;
+    //         }
+    //         else if(index == 1){
+    //           chart.data.datasets[0].data = humidityData;
+    //         }
+    //         else if(index == 2){
+    //           chart.data.datasets[0].data = rssiData;
+    //         }
+    //         chart.update();
+    //       });
+    //     });
+
+    //   } else {
+    //     alert("Error fetching data: " + response.error);
+    //   }
+    // });
+    
+    
+  });
+
+  
+
+  // socket.on('update_chart', function(){
+  //   charts.forEach(function (chart,index) {
+  //     chart.update();
+  //     console.log("Chart Updated")
+  //   });
+  // });
+  
+
+  socket.on('connect', function () {
+    console.log('Connected to server');
+  });
+
+  // var chartContainer = document.getElementById('chartRow1');
+  // chartContainer.appendChild(createChartCard('rssiBarChart1', 'RSSI', 'col-md-12'));
+  // var chartContainer2 = document.getElementById('chartRow2');;
+  // chartContainer2.appendChild(createChartCard('tempBarChart1', 'Temperature'));
+  // chartContainer2.appendChild(createChartCard('humidityBarChart1', 'Humidity'));
+
+  // var chartContainer = document.getElementById('4c:75:25:cb:7f:50-chartRow1');
+  // chartContainer.appendChild(createChartCard('rssiBarChart1', 'RSSI', 'col-md-12'));
+  // var chartContainer2 = document.getElementById('4c:75:25:cb:7f:50-chartRow2');;
+  // chartContainer2.appendChild(createChartCard('tempBarChart1', 'Temperature'));
+  // chartContainer2.appendChild(createChartCard('humidityBarChart1', 'Humidity'));
+
+  // // Create charts for Temperature, Humidity, and RSSI
+  // createChart('tempBarChart1', 'Temperature', 'bar',);
+  // createChart('humidityBarChart1', 'Humidity', 'bar');
+  // createChart('rssiBarChart1', 'RSSI', 'line');
+
+  // var chartContainer = document.getElementById('4c:75:25:cb:94:ac-chartRow1');
+  // chartContainer.appendChild(createChartCard('rssiBarChart2', 'RSSI', 'col-md-12'));
+  // var chartContainer2 = document.getElementById('4c:75:25:cb:94:ac-chartRow2');;
+  // chartContainer2.appendChild(createChartCard('tempBarChart2', 'Temperature'));
+  // chartContainer2.appendChild(createChartCard('humidityBarChart2', 'Humidity'));
+
+  // // Create charts for Temperature, Humidity, and RSSI
+  // createChart('tempBarChart2', 'Temperature', 'bar');
+  // createChart('humidityBarChart2', 'Humidity', 'bar');
+  // createChart('rssiBarChart2', 'RSSI', 'line');
+
+  
+
+  // socket.on('message_updated', function (data) {
+  //     var regex = /M ([\w:]+) - T: (\d+\.\d+) C, H: (\d+\.\d+)/g;
+  //     var match = regex.exec(data.message[0]);
+
+  //     var macAddress = match[1];
+  //     var temperature = parseFloat(match[2]);
+  //     var humidity = parseFloat(match[3]);
+  //     var rssi = data.rssi; // Assuming you're passing the RSSI data along with the message
+
+  //     var currentTime = new Date().toLocaleTimeString();
+
+  //     updateCharts(currentTime, temperature, humidity, rssi);
+
+  //     var newText = document.createElement('p');
+  //     newText.textContent = 'MAC Address: ' + macAddress + ', Temperature: ' + temperature + ', Humidity: ' + humidity + ', RSSI: ' + rssi + '<- FarmID: ' + data.farm_id;
+  //     document.querySelector('.message-list').appendChild(newText);
+  // });
+
+  function createChartCard(canvasId, chartTitle, chartSize) {
+    // Create the card div
+    var cardDiv = document.createElement('div');
+    // cardDiv.className = 'col-md-6';
+    cardDiv.className = chartSize ? chartSize : 'col-md-6';
+
+    // Create the card element
+    var card = document.createElement('div');
+    card.className = 'card';
+
+    // Create the card body
+    var cardBody = document.createElement('div');
+    cardBody.className = 'card-body';
+
+    // Create the card title
+    var title = document.createElement('h5');
+    title.className = 'card-title';
+    title.textContent = chartTitle;
+
+    // Create the canvas element for the chart
+    var canvas = document.createElement('canvas');
+    canvas.id = canvasId;
+    canvas.height = 50;
+
+    // Append title and canvas to the card body
+    cardBody.appendChild(title);
+    cardBody.appendChild(canvas);
+
+    // Append card body to the card
+    card.appendChild(cardBody);
+
+    // Append card to the card div
+    cardDiv.appendChild(card);
+
+    // Return the card div
+    return cardDiv;
+  }
+
+  function createChart(canvasId, label, type, data = [], labels = [], color) {
     var ctx = document.getElementById(canvasId).getContext('2d');
     var chart = new Chart(ctx, {
-        type: 'line',
-        data: {
-            labels: [],
-            datasets: [{
-                label: label,
-                data: [],
-                backgroundColor: 'rgb(75, 192, 192)',
-            }]
-        },
-        options: {
-            scales: {
-                y: {
-                    beginAtZero: true
-                }
-            }
+      type: type,
+      data: {
+        labels: labels,
+        datasets: [{
+          label: label,
+          data: data,
+          backgroundColor: color,
+        }]
+      },
+      options: {
+        scales: {
+          y: {
+            beginAtZero: true
+          }
         }
+      }
     });
-    charts.push(chart);
-}
+    chart.update()
+    // charts.push(chart);
+  }
 
-// Create charts for Temperature, Humidity, and RSSI
-createChart('tempBarChart', 'Temperature');
-createChart('humidityBarChart', 'Humidity');
-createChart('rssiBarChart', 'RSSI');
+
 
 </script>
 {% endblock bodyContent %}
