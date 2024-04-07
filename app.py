@@ -1,39 +1,48 @@
-from flask import Flask, render_template, request, jsonify, stream_with_context, Response
+from flask import Flask, render_template, request, jsonify
 from flask_socketio import SocketIO, emit
 from flask_mysqldb import MySQL
+
 from flask_cors import CORS
-import json
 import re
 from datetime import datetime
+import os
+
+
+# Load environment variables from .env file
+
 
 app = Flask(__name__)
 socketio = SocketIO(app)
+# load_dotenv()
 
-app.config["MYSQL_DB"] = "iot_project"
-app.config["MYSQL_USER"] = "root"
-app.config["MYSQL_PASSWORD"] = "root"
-app.config["MYSQL_HOST"] = "localhost"
+app.config["MYSQL_DB"] = os.getenv("MYSQL_DB")
+app.config["MYSQL_USER"] = os.getenv("MYSQL_USER")
+app.config["MYSQL_PASSWORD"] = os.getenv("MYSQL_PASSWORD")
+app.config["MYSQL_HOST"] = os.getenv("MYSQL_HOST")
 
 mysql = MySQL(app)
 
 CORS(app)
 
-try:
-    # Attempt to establish the connection
-    connection = mysql.connection.cursor()
-except Exception as e:
-    print(f"Error connecting to the database: {e}")
+# Declare cursor as a global variable
+# cursor = None
 
-# Initialize empty data and labels
-labels = ['January', 'February', 'March', 'April', 'May', 'June']
-data = [0, 10, 15, 8, 22, 18]
+# Attempt to establish the connection within the application context
+with app.app_context():
+    try:
+        # Attempt to establish the connection
+        cursor = mysql.connection.cursor()
+        print("Connected to the database successfully!")
+    except Exception as e:
+        print(f"Error connecting to the database: {e}")
+
 
 # @app.route('/')
 # def homepage():
 #     return render_template('home/index.html', labels=labels, data=data)
 
 @app.route('/')
-def ttn():
+def index():
     try:
         cursor = mysql.connection.cursor()
         cursor.execute("SELECT DISTINCT mac_address FROM sensor_data")
@@ -41,9 +50,20 @@ def ttn():
         mac_addresses = [row[0] for row in data]  # Extracting MAC addresses from the fetched data
         # cursor.execute("SELECT timestamp, temperature, humidity, rssi FROM sensor_data WHERE mac_address = %s ORDER BY timestamp ASC", (mac_address,))
         print(data)
-        return render_template('home/message.html', mac_address=mac_addresses)
+        return render_template('home/index.html', mac_address=mac_addresses)
     except Exception as e:
-        print(f"Error fetching data from the database: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+    
+@app.route('/settings')
+def settings():
+    try:
+        cursor = mysql.connection.cursor()
+        cursor.execute("SELECT DISTINCT mac_address FROM sensor_data")
+        data = cursor.fetchall()
+        mac_addresses = [row[0] for row in data]  # Extracting MAC addresses from the fetched data
+        return render_template('home/settings.html', mac_addresses=mac_addresses)
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 @app.route('/get-data', methods=['POST'])
 def data():
@@ -91,19 +111,44 @@ def get_latest_data():
 #     except Exception as e:
 #         return jsonify({'success': False, 'error': str(e)}), 500
     
-@app.route('/update-data')
+@app.route('/update-data', methods=['POST','GET'])
 def get_all_data():
-    try:
-        # Get the JSON data from the request
-        json_data = request.json
+    if request.method == 'GET':
+        try:
+            # Get the JSON data from the request
+            # json_data = request.json
 
-        cursor = mysql.connection.cursor()
-        cursor.execute("SELECT mac_address, timestamp, temperature, humidity, rssi FROM sensor_data ORDER BY timestamp DESC LIMIT 2")
-        data = cursor.fetchall()
-        socketio.emit('data_update', {'data': data})
-        return jsonify({'success': True})
-    except Exception as e:
-        return jsonify({'success': False, 'error': str(e)}), 500
+            cursor = mysql.connection.cursor()
+            cursor.execute("SELECT mac_address, timestamp, temperature, humidity, rssi FROM sensor_data ORDER BY timestamp DESC LIMIT 2")
+            data = cursor.fetchall()
+            socketio.emit('data_update', {'data': data})
+            return jsonify({'success': True})
+        except Exception as e:
+            return jsonify({'success': False, 'error': str(e)}), 500
+    else:
+        try:
+            mac_address = request.json.get('mac_address')
+
+            cursor = mysql.connection.cursor()
+            cursor.execute("SELECT timestamp, temperature, humidity, rssi FROM sensor_data WHERE mac_address = %s ORDER BY timestamp DESC LIMIT 1", (mac_address,))
+            data = cursor.fetchone()
+
+            if data:
+                # Extract specific fields from the fetched data
+                timestamp, temperature, humidity, rssi = data
+                # app.logger.critical(timestamp, temperature, humidity, rssi)
+                # Emit the extracted data to the socket
+                socketio.emit('data_update_'+mac_address, {'timestamp': timestamp, 'temperature': temperature, 'humidity': humidity, 'rssi': rssi})
+                return jsonify({'success': True})
+            else:
+                return jsonify({'success': False, 'error': 'No data found for the specified MAC address'}), 404
+
+        except KeyError:
+            return jsonify({'success': False, 'error': 'Missing "mac_address" field in the request'}), 400
+
+        except Exception as e:
+            return jsonify({'success': False, 'error': str(e)}), 500
+
     
 
 
@@ -127,7 +172,7 @@ def handle_request_data(data):
         emit('data_response', {'success': False, 'error': str(e)}) 
 
 
-
+# Handle the POST request to push data from TTN
 @app.route('/push', methods=['POST'])
 def push():
     if request.method == 'POST':
@@ -149,29 +194,25 @@ def push():
                 # Split the message by newline character '\n'
                 message_lines = message.split('\n')
                 message_lines.remove('')  # Remove empty lines
-                # Log the message lines and RSSI
-                # print('Message lines:', message_lines)
-                # print('Size',len(message_lines))
-                socketio.emit('update_chart')
 
                 # Get the current time and convert it to string in 'YYYY-MM-DD HH:MM:SS' format
-                current_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                # current_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                current_time = datetime.now().strftime('%d-%m-%y %H:%M:%S')
 
                 mac_addresses = []
 
                 for plant in message_lines:
                     measurements = re.findall(r'M ([\w:]+) - T: (\d+\.\d+) C, H: (\d+\.\d+)', plant)
-                    print('MAC:', measurements[0][0], 'Temperature:', measurements[0][1], 'Humidity:', measurements[0][2])
+                    # print('MAC:', measurements[0][0], 'Temperature:', measurements[0][1], 'Humidity:', measurements[0][2])
                     mac_addresses.append(measurements[0][0])
                     # Insert the data into the database
                     try:
+                        app.logger.critical(measurements)
                         cursor = mysql.connection.cursor()
                         cursor.execute("INSERT INTO sensor_data (mac_address, temperature, humidity, rssi, timestamp) VALUES (%s, %s, %s,%s,%s)", (measurements[0][0], float(measurements[0][1]), float(measurements[0][2]), int(rssi), current_time))
                         mysql.connection.commit()
-                        # socketio.emit('get_data')
-                        # socketio.emit('get_data', { 'mac_address': '4c:75:25:cb:7f:50' })
                     except Exception as e:
-                        print(f"Error inserting data into the database: {e}")
+                        return jsonify(success=False,error="Error inserting data into the database:"+str(e)), 500
                      
                 
 
@@ -182,6 +223,7 @@ def push():
             else:
                 return jsonify(success=False, error='Uplink message not found'), 400
         except Exception as e:
+            app.logger.error(f"Error inserting data into the database: {e}")
             return jsonify(success=False, error=str(e)), 500
     else:
         return jsonify(success=False, error='Only POST requests are allowed'), 405
@@ -190,5 +232,5 @@ def push():
 
 
 if __name__ == '__main__':
-    # app.debug = True
-    socketio.run(app, host='0.0.0.0', port=5000, allow_unsafe_werkzeug=True)
+    app.debug = False
+    socketio.run(app, host='0.0.0.0', port=5000)

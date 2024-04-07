@@ -8,33 +8,20 @@
   src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-moment/dist/chartjs-adapter-moment.bundle.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom"></script>
+<!-- <script type="text/javascript" src="/static/js/index.js" defer></script> -->
 {% endblock headContent %}
 {% block bodyContent %}
-<!-- <div style="height: 50vh; width: 50%;">
-    <canvas id="tempBarChart"></canvas>
-  </div>
-  <div style="height: 50vh; width: 50%;">
-    <canvas id="humidityBarChart"></canvas>
-  </div> -->
 <div class="container-fluid mt-3">
   <div class="row">
-    <div class="col-md-4">
+    <div class="col-md-6">
       <div class="card">
         <div class="card-body">
           <h5 class="card-title">Connected Devices</h5>
-          <p class="card-text">Number of connected devices: <span id="connectedDevices">0</span></p>
+          <p class="card-text">Number of Plants: <span id="connectedDevices">0</span></p>
         </div>
       </div>
     </div>
-    <div class="col-md-4">
-      <div class="card">
-        <div class="card-body">
-          <h5 class="card-title">Current Device</h5>
-          <p class="card-text">Device 1 <span id="currentTime"></span></p>
-        </div>
-      </div>
-    </div>
-    <div class="col-md-4">
+    <div class="col-md-6">
       <div class="card">
         <div class="card-body">
           <h5 class="card-title">Last Updated</h5>
@@ -43,190 +30,263 @@
       </div>
     </div>
   </div>
-  <div class="row mt-3">
-    <div class="col-md-6">
-      <div class="card">
-        <div class="card-body">
-          <h5 class="card-title">Temperature</h5>
-          <canvas id="tempBarChart"></canvas>
-        </div>
-      </div>
-    </div>
-    <div class="col-md-6">
-      <div class="card">
-        <div class="card-body">
-          <h5 class="card-title">Humidity</h5>
-          <canvas id="humidityBarChart"></canvas>
-        </div>
-      </div>
-    </div>
+  {% for mac in mac_address %}
+  <div class="row mt-3" id="{{mac}}-chartRow1">
   </div>
-  <div class="row mt-3">
-    <!-- Soil Moisture Chart -->
-    <div class="col-md-6">
-      <div class="card">
-        <div class="card-body">
-          <h5 class="card-title">Soil Moisture</h5>
-          <!-- Canvas for displaying soil moisture chart -->
-          <canvas id="soilMoistureChart"></canvas>
-        </div>
-      </div>
-    </div>
-    <div class="col-md-6">
-      <div class="card">
-        <div class="card-body">
-          <h5 class="card-title">pH Level</h5>
-          <!-- Canvas for displaying pH level chart -->
-          <canvas id="phLevelChart"></canvas>
-        </div>
-      </div>
-    </div>
+  <div class="row mt-3" id="{{mac}}-chartRow2">
   </div>
+  {% endfor %}
 </div>
 <script>
-  // Initial data
-  var labels = {{ labels | tojson }};
-  var data = {{ data | tojson }};
+  var mac_addresses = [];
+  var socket = io();
 
-  // Create bar chart
-  var tempCtxBar = document.getElementById('tempBarChart');
-  var tempBarChart = new Chart(tempCtxBar, {
-    type: 'bar',
-    data: {
-      labels: labels,
-      datasets: [{
-        label: 'Temperature',
-        data: data,
-        backgroundColor: 'rgb(75, 192, 192)',
-      }]
-    },
-    options: {
-      scales: {
-        y: {
-          beginAtZero: true
-        }
+  var num_charts = 3;
+  var last_updated_for_mac_address = {};
+  var last_update_for_chart = {};
+  var last_updated_time;
+  var interval = null;
+
+  mac_addresses = {{ mac_address | tojson }};
+  document.addEventListener('DOMContentLoaded', function () {
+
+    if(localStorage.getItem('updateInterval') == null){
+      localStorage.setItem('updateInterval', 15000);
+    }
+      
+    interval = localStorage.getItem('updateInterval');
+    console.log("Interval:", interval);
+    
+    // console.log("Plant1:",mac_addresses[0]);
+    // console.log("Plant2:",mac_addresses[1]);
+    document.getElementById('connectedDevices').textContent = mac_addresses.length;
+    // Fetch data for each device
+    mac_addresses.forEach(macAddress => {
+      fetchData(macAddress);
+      last_updated_for_mac_address[macAddress] = "";
+      console.log("Fetching Data for: ", macAddress);
+    });
+
+    function fetchData(macAddress) {
+      fetch('/get-data', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ mac_address: macAddress })
+      })
+        .then(response => response.json())
+        .then(data => {
+          // Handle the response data here
+          updateCharts(data);
+        })
+        .catch(error => {
+          console.error('Error fetching data:', error);
+        });
+    }
+
+    // Get request to update chart data
+    function updateData() {
+      fetch('/update-data', {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+      })
+        .then(response => response.json())
+        .then(data => {
+          // Handle the response data here
+        })
+        .catch(error => {
+          console.error('Error fetching data:', error);
+        });
+    }
+
+    function updateSpecificData(macAddress) {
+      fetch('/update-data', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ mac_address: macAddress })
+      })
+        .then(response => response.json())
+        .then(data => {
+          // Handle the response data here
+        })
+        .catch(error => {
+          console.error('Error fetching data:', error);
+        });
+    }
+
+    // setInterval(() => {updateData()}, 15000);
+    setInterval(() => { updateSpecificData('4c:75:25:cb:7f:50') }, interval);
+    setInterval(() => { updateSpecificData('4c:75:25:cb:94:ac') }, interval);
+
+    var tempColor = 'rgba(255, 99, 132, 0.7)'; // Red color with 70% opacity for temperature
+    var humidityColor = 'rgba(54, 162, 235, 0.7)'; // Blue color with 70% opacity for humidity
+    var rssiColor = 'rgba(255, 205, 86, 0.7)'; // Yellow color with 70% opacity for RSSI
+
+    function updateCharts(response) {
+      const data_array = response.data;
+      const mac_address = response.mac_address;
+      var labels = [];
+      var temperatureData = [];
+      var humidityData = [];
+      var rssiData = [];
+
+      last_updated_for_mac_address[mac_address] = data_array[data_array.length - 1][0];
+      document.getElementById('lastUpdated').textContent = last_updated_for_mac_address[mac_address];
+      // document.getElementById('lastUpdated_settings').textContent = last_updated_for_mac_address[mac_address];
+      // console.log("Mac Address:", mac_address);
+      for (const readings of data_array) {
+        // console.log("Readings:", readings);
+        labels.push(readings[0]);
+        temperatureData.push(readings[1]);
+        humidityData.push(readings[2]);
+        rssiData.push(readings[3]);
       }
+      // For rssi graph
+      var container = document.getElementById(mac_address + '-chartRow1');
+      var container2 = document.getElementById(mac_address + '-chartRow2');
+
+      // Retrieve name from local storage
+      var macName = localStorage.getItem(mac_address);
+      var displayName = macName ? macName : mac_address;
+
+      container.innerHTML = '<h2>' + displayName + '</h2>';
+      container2.innerHTML = '';
+      container.appendChild(createChartCard(mac_address + '-rssiChart', 'RSSI', 'col-md-12'));
+      container2.appendChild(createChartCard(mac_address + '-tempChart', 'Temperature'));
+      container2.appendChild(createChartCard(mac_address + '-humidityChart', 'Humidity'));
+      var rssiConfig = createConfig('RSSI', 'line', rssiData, labels, rssiColor);
+      var tempConfig = createConfig('Temperature', 'bar', temperatureData, labels, tempColor);
+      var humidityConfig = createConfig('Humidity', 'bar', humidityData, labels, humidityColor);
+      createChart(mac_address + '-tempChart', tempConfig, mac_address);
+      createChart(mac_address + '-humidityChart', humidityConfig, mac_address);
+      createChart(mac_address + '-rssiChart', rssiConfig, mac_address);
     }
   });
 
-  // Create bar chart
-  var humidCtxBar = document.getElementById('humidityBarChart');
-  var humidBarChart = new Chart(humidCtxBar, {
-    type: 'bar',
-    data: {
-      labels: labels,
-      datasets: [{
-        label: 'Humidity',
-        data: data,
-        backgroundColor: 'rgb(71, 120, 122)',
-      }]
-    },
-    options: {
-      scales: {
-        y: {
-          beginAtZero: true
-        }
-      }
-    }
-  });
-
- var socket = io();
 
   socket.on('connect', function () {
     console.log('Connected to server');
   });
 
-  socket.on('chart_updated', function (data) {
-    // Update chart with new data and labels
-    tempBarChart.data.labels = data.labels;
-    tempBarChart.data.datasets[0].data = data.data;
-    humidBarChart.data.labels = data.labels;
-    humidBarChart.data.datasets[0].data = data.data;
-    console.log(data.data);
-    tempBarChart.update();
-    humidBarChart.update();
-  });
+  function createChartCard(canvasId, chartTitle, chartSize) {
+    // Create the card div
+    var cardDiv = document.createElement('div');
+    cardDiv.className = chartSize ? chartSize : 'col-md-6';
 
-  // Initialize soil moisture chart
-  var soilMoistureCtx = document.getElementById('soilMoistureChart').getContext('2d');
-  var soilMoistureChart = new Chart(soilMoistureCtx, {
-    type: 'bar',
-    data: {
-      labels: ['January', 'February', 'March', 'April', 'May', 'June'],
-      datasets: [{
-        label: 'Soil Moisture',
-        data: [50, 60, 70, 80, 70, 65], // Example data (replace with actual data)
-        backgroundColor: 'rgba(75, 192, 192, 0.5)',
-        borderColor: 'rgba(75, 192, 192, 1)',
-        borderWidth: 1
-      }]
-    },
-    options: {
-      scales: {
-        y: {
-          beginAtZero: true,
-          title: {
-            display: true,
-            text: 'Moisture Level (%)'
-          }
-        },
-        x: {
-          title: {
-            display: true,
-            text: 'Time'
+    // Create the card element
+    var card = document.createElement('div');
+    card.className = 'card';
+
+    // Create the card body
+    var cardBody = document.createElement('div');
+    cardBody.className = 'card-body';
+
+    // Create the card title
+    var title = document.createElement('h5');
+    title.className = 'card-title';
+    title.textContent = chartTitle;
+
+    // Create the canvas element for the chart
+    var canvas = document.createElement('canvas');
+    canvas.id = canvasId;
+    canvas.height = 80;
+
+    // Append title and canvas to the card body
+    cardBody.appendChild(title);
+    cardBody.appendChild(canvas);
+
+    // Append card body to the card
+    card.appendChild(cardBody);
+
+    // Append card to the card div
+    cardDiv.appendChild(card);
+
+    // Return the card div
+    return cardDiv;
+  }
+
+  function createConfig(label, type, data = [], labels = [], color) {
+    return {
+      type: type,
+      data: {
+        labels: labels,
+        datasets: [{
+          label: label,
+          data: data,
+          backgroundColor: color,
+        }]
+      },
+      options: {
+        scales: {
+          y: {
+            beginAtZero: true
           }
         }
       }
-    }
-  });
+    };
+  }
 
-  // Initialize pH level chart
-  var phLevelCtx = document.getElementById('phLevelChart').getContext('2d');
-  var phLevelChart = new Chart(phLevelCtx, {
-    type: 'bar',
-    data: {
-      labels: ['January', 'February', 'March', 'April', 'May', 'June'],
-      datasets: [{
-        label: 'pH Level',
-        data: [7.0, 6.8, 7.2, 6.5, 6.7, 7.1], // Example data (replace with actual data)
-        backgroundColor: 'rgba(153, 102, 255, 0.5)',
-        borderColor: 'rgba(153, 102, 255, 1)',
-        borderWidth: 1
-      }]
-    },
-    options: {
-      scales: {
-        y: {
-          beginAtZero: false,
-          title: {
-            display: true,
-            text: 'pH Level'
-          }
-        },
-        x: {
-          title: {
-            display: true,
-            text: 'Time'
-          }
-        }
+  function createChart(canvasId, config, mac_address) {
+    var ctx = document.getElementById(canvasId).getContext('2d');
+    var chart = new Chart(ctx, config);
+
+    // Listen for the data_update event from the server
+    socket.on('data_update_' + mac_address, function (data) {
+      // console.log("Data Update:", timestamp, humidity, temperature, rssi);
+      // console.log("Data Update:", data.data);
+      var timestamp = data['timestamp'];
+      var temperature = data['temperature'];
+      var humidity = data['humidity'];
+      var rssi = data['rssi'];
+
+      // Get the RSSI, temperature, and humidity values from the data array
+
+      currentTime = new Date().toLocaleTimeString([], { hour12: false });
+      currentTimeWithDate = new Date().toLocaleString('en-US',
+        { day: '2-digit', month: '2-digit', year: 'numeric', hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' }).replace(/\//g, '-');
+
+
+
+
+      // Append the new data to data arrays based on the chart type (temperature, humidity, or rssi)
+      // Determine the maximum length for the labels array
+      // var maxLabelsLength = canvasId.includes('rssi') ? 15 : 10;
+
+      // Shift labels and data if the maximum length is reached
+      // if (config.data.labels.length >= 15) {
+      //   config.data.labels.shift();
+      //   config.data.datasets[0].data.shift();
+      // }
+
+      // Append data based on the chart type
+      if (canvasId.includes('rssi')) {
+        config.data.datasets[0].data.push(rssi);
+      } else if (canvasId.includes('temp')) {
+        config.data.datasets[0].data.push(temperature);
+      } else if (canvasId.includes('humidity')) {
+        config.data.datasets[0].data.push(humidity);
       }
-    }
-  });
 
-  // Example: Update soil moisture every 5 seconds (replace with actual data update)
-  setInterval(function () {
-    // Generate random data for demonstration
-    var newMoistureData = Array.from({ length: 6 }, () => Math.floor(Math.random() * 100));
-    var newPhData = Array.from({ length: 6 }, () => (Math.random() * (8.0 - 6.0) + 6.0).toFixed(1));
-    // Update chart data
-    soilMoistureChart.data.datasets[0].data = newMoistureData;
-    phLevelChart.data.datasets[0].data = newPhData;
-    // Update chart
-    soilMoistureChart.update();
-    phLevelChart.update();
-  }, 5000);
+
+      // Append the current time to the labels array if it's different from the last updated time
+      if (last_updated_for_mac_address[mac_address] != timestamp) {
+        last_updated_for_mac_address[mac_address] = timestamp;
+        config.data.labels.push(timestamp);
+      }
+      document.getElementById('lastUpdated').textContent = timestamp;
+      chart.update();
+    });
+
+    // console.log(socket_enabled)
+  }
+
+  function getMacName(macAddress) {
+    return localStorage.getItem(macAddress);
+  }
 </script>
 {% endblock bodyContent %}
-<!-- </body>
-
-</html> -->

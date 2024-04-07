@@ -1,0 +1,138 @@
+{% extends 'layouts/base.html' %}
+
+{% block title %}Chart.js Example{% endblock title %}
+{% block headContent %}
+<!-- <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.socket.io/4.0.1/socket.io.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-moment/dist/chartjs-adapter-moment.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom"></script> -->
+<script type="text/javascript" src="/static/js/index.js" defer></script>
+{% endblock headContent %}
+{% block bodyContent %}
+<div class="modal fade" id="saveModal" tabindex="-1" aria-labelledby="saveModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="saveModalLabel">Saving Data</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        Data is being saved...
+      </div>
+    </div>
+  </div>
+</div>
+<div class="container-fluid mt-3">
+  <ul class="nav nav-tabs" id="settingsTab" role="tablist">
+    <li class="nav-item" role="presentation">
+      <button class="nav-link active" id="connectedDevices-tab" data-bs-toggle="tab" data-bs-target="#connectedDevices"
+        type="button" role="tab" aria-controls="connectedDevices" aria-selected="true">Connected Devices</button>
+    </li>
+    <li class="nav-item" role="presentation">
+      <button class="nav-link" id="lastUpdated-tab" data-bs-toggle="tab" data-bs-target="#lastUpdated" type="button"
+        role="tab" aria-controls="lastUpdated" aria-selected="false">Update Interval</button>
+    </li>
+  </ul>
+  <div class="tab-content mt-3" id="settingsTabContent">
+    <div class="tab-pane fade show active" id="connectedDevices" role="tabpanel" aria-labelledby="connectedDevices-tab">
+      <div class="card">
+        <div class="card-body">
+          <h5 class="card-title">Connected Devices</h5>
+          {% for mac in mac_addresses %}
+          <div class="form-group row mt-2">
+            <label for="{{mac}}-name" class="col-sm-2 col-form-label">{{mac}}</label>
+            <div class="col-sm-6">
+              <input type="text" class="form-control" id="{{mac}}-name" placeholder="Enter name for MAC address">
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+        <div class="p-3 d-flex justify-content-end">
+          <button type="button" class="btn btn-primary" id="saveSettings" onclick="saveNames()">Save</button>
+        </div>
+      </div>
+    </div>
+    <div class="tab-pane fade" id="lastUpdated" role="tabpanel" aria-labelledby="lastUpdated-tab">
+      <div class="card p-3">
+        <div class="form-group">
+          <label for="intervalSelect">Select Interval:</label>
+          <select class="form-control" id="intervalSelect" onchange="setUpdateInterval()">
+            <option value="5000">5 seconds</option>
+            <option value="10000">10 seconds</option>
+            <option value="15000">15 seconds</option>
+            <option value="30000">30 seconds</option>
+            <option value="60000">1 minute</option>
+            <option value="120000">2 minutes</option>
+          </select>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+  for (const mac_address of {{ mac_addresses | tojson }}) {
+    var name = localStorage.getItem(mac_address);
+    if (name!="null") {
+      document.getElementById(mac_address + "-name").value = name;
+    }
+    else {
+      document.getElementById(mac_address + "-name").value = "";
+  }
+}
+  function saveNames() {
+    console.log("Saving names");
+    var myModal = new bootstrap.Modal(document.getElementById('saveModal'), {});
+    document.getElementById('saveModalLabel').innerText = "Saving Names";
+    myModal.show();
+
+    var macAddresses = [];
+    {% for mac in mac_addresses %}
+    var mac = "{{ mac }}";
+    var name = document.getElementById(mac + "-name").value;
+    macAddresses.push({ mac: mac, name: name });
+    {% endfor %}
+    console.log(macAddresses);
+    localStorage.setItem('macAddresses', JSON.stringify(macAddresses));
+
+    // Save names to local storage
+    var storedMacAddresses = JSON.parse(localStorage.getItem('macAddresses'));
+    if (storedMacAddresses) {
+      storedMacAddresses.forEach(function (item) {
+        localStorage.setItem(item.mac, item.name);
+      });
+    }
+
+    setTimeout(function () {
+      myModal.hide();
+    }, 2000); // Adjust the delay time as needed
+  }
+
+  function setUpdateInterval() {
+    var interval = document.getElementById("intervalSelect").value;
+    localStorage.setItem('updateInterval', interval);
+    var myModal = new bootstrap.Modal(document.getElementById('saveModal'), {});
+    document.getElementById('saveModalLabel').innerText = "Interval Set";
+    myModal.show();
+  }
+
+  function setSelectedInterval() {
+    var currentInterval = localStorage.getItem('updateInterval');
+    if (currentInterval) {
+      var intervalSelect = document.getElementById("intervalSelect");
+      for (var i = 0; i < intervalSelect.options.length; i++) {
+        if (intervalSelect.options[i].value === currentInterval) {
+          intervalSelect.options[i].selected = true;
+          break;
+        }
+      }
+    }
+  }
+  
+  // Call the function to set the selected interval when the DOM is fully loaded
+  document.addEventListener('DOMContentLoaded', function() {
+    console.log(localStorage.getItem('updateInterval'));
+    setSelectedInterval();
+  });
+</script>
+{% endblock bodyContent %}
