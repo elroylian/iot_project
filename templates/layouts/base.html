@@ -23,9 +23,10 @@
     crossorigin="anonymous"></script>
   {% block headContent %}
   {% endblock headContent %}
-  <title>MyIOT</title>
+  <title>{% block title %}MyIOT{% endblock title %}</title>
 </head>
 <body>
+  {%block navContent %}
   <nav class="navbar navbar-light navbar-expand-lg">
     <div class="container-fluid">
       <a class="navbar-brand" href="/">
@@ -49,6 +50,7 @@
       </div>
     </div>
   </nav>
+  {% endblock navContent %}
 
   <!-- Content Block -->
   {% block bodyContent %}

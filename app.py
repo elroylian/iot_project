@@ -13,7 +13,10 @@ import os
 
 app = Flask(__name__)
 socketio = SocketIO(app)
-# load_dotenv()
+
+
+# Set the timezone to Asia/Singapore
+app.config['TZ'] = 'Asia/Singapore'
 
 app.config["MYSQL_DB"] = os.getenv("MYSQL_DB")
 app.config["MYSQL_USER"] = os.getenv("MYSQL_USER")
@@ -52,7 +55,7 @@ def index():
         print(data)
         return render_template('home/index.html', mac_address=mac_addresses)
     except Exception as e:
-        return jsonify({'success': False, 'error': str(e)}), 500
+        return render_template('error/error.html', error=e)
     
 @app.route('/settings')
 def settings():
@@ -227,7 +230,11 @@ def push():
             return jsonify(success=False, error=str(e)), 500
     else:
         return jsonify(success=False, error='Only POST requests are allowed'), 405
-        
+
+@app.errorhandler(404)
+def page_not_found(error):
+    # Render a custom 404 page
+    return render_template('error/404.html'), 404    
 
 
 
