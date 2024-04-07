@@ -1,7 +1,7 @@
 from flask import Flask, render_template, request, jsonify
 from flask_socketio import SocketIO, emit
 from flask_mysqldb import MySQL
-
+import pytz
 from flask_cors import CORS
 import re
 from datetime import datetime
@@ -16,7 +16,7 @@ socketio = SocketIO(app)
 
 
 # Set the timezone to Asia/Singapore
-app.config['TZ'] = 'Asia/Singapore'
+TZ = pytz.timezone('Asia/Singapore')
 
 app.config["MYSQL_DB"] = os.getenv("MYSQL_DB")
 app.config["MYSQL_USER"] = os.getenv("MYSQL_USER")
@@ -200,7 +200,7 @@ def push():
 
                 # Get the current time and convert it to string in 'YYYY-MM-DD HH:MM:SS' format
                 # current_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-                current_time = datetime.now().strftime('%d-%m-%y %H:%M:%S')
+                current_time = datetime.now(TZ).strftime('%d-%m-%y %H:%M:%S')
 
                 mac_addresses = []
 
